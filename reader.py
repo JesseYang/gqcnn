@@ -1,4 +1,5 @@
 import collections
+from scipy import misc
 import tensorflow as tf
 
 import os, sys, shutil
@@ -29,31 +30,18 @@ class Data(RNGDataFlow):
         self.save_data = save_data
 
         self.filename = filename
-#         f =  h5py.File(self.filename, 'r')
-#         self.depth_ims = f['depth_im']
-#         self.depths = f['hand_depth']
-#         self.labels = f['label']
 
     def size(self):
-        return int(cfg.train_num) if not self.test_set else int(cfg.val_num)
+        return cfg.train_num if not self.test_set else cfg.val_num
 
     def generate_sample(self, idx):
         with h5py.File(self.filename, 'r') as f:
             depth_im = f['depth_im'][idx]
             depth = f['hand_depth'][idx]
             label = f['label'][idx]            
-#         depth_im = self.depth_ims[idx]
-#         depth = self.depths[idx]
-#         label = self.labels[idx]
 
         if self.save_data:
-            cv2.imwrite(os.path.join(SAVE_DIR, '%d_depth_im.jpg' % idx), depth_im)
-            with open(os.path.join(SAVE_DIR, 'data.txt'), 'a', encoding='utf-8') as f:
-                f.write('hand_depth:') 
-                f.write(str(depth))
-                f.write(' label:')
-                f.write(str(label))
-                f.write('\n')
+            misc.imsave(os.path.join(SAVE_DIR, '%d_%d_depth_im.jpg' % (label, idx)), depth_im[:,:,0])
 
         return [depth_im, depth, label]
 

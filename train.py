@@ -62,16 +62,6 @@ class GQCNN(ModelDesc):
                 im_fc3 = tf.nn.dropout(fc3, cfg.fc3_drop_rate)     
             pc1 = FullyConnected('pc1', pose, 16)
 
-#         with tf.name_scope('fc4'):
-#             fc4_std = np.sqrt(2.0 / (1024 + 16))
-#             fc4W_im = tf.Variable(tf.truncated_normal([1024, 1024], stddev=fc4_std), name='W_im')
-#             fc4W_pose = tf.Variable(tf.truncated_normal([16, 1024], stddev=fc4_std), name='W_pose')
-#             fc4b = tf.Variable(tf.truncated_normal([1024], stddev=fc4_std), name='fc4b')
-#             fc4 = tf.nn.relu(
-#                     tf.matmul(im_fc3, fc4W_im, name='fc4_im') + 
-#                     tf.matmul(pc1, fc4W_pose, name='fc4_pose') + 
-#                     fc4b, name='fc4')
-
         fc4_im = FullyConnected('fc4_im', im_fc3, 1024, activation=tf.identity)
         fc4_pose = FullyConnected('fc4_pose', pc1, 1024, activation=tf.identity)
         fc4 = tf.nn.relu(fc4_im + fc4_pose)
@@ -82,20 +72,18 @@ class GQCNN(ModelDesc):
     def _build_graph(self, inputs):
         image, pose, label = inputs
         pose = tf.reshape(pose, [-1, 1])
-        image_summary = tf.cast(image, tf.uint8)
-        tf.summary.image('image', image_summary, max_outputs=3)
+        # image_summary = tf.cast(image, tf.uint8)
+        tf.summary.image('image', image, max_outputs=3)
 
         logits = self._get_logits(image, pose)
         preds = tf.nn.softmax(logits)
         accuracy = tf.to_float(tf.nn.in_top_k(preds, label, 1))
         add_moving_summary(tf.reduce_mean(accuracy, name='accuracy'))
 
-        # error
+        # loss
         loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
-                                _sentinel=None,
                                 labels=label,
-                                logits=logits,
-                                name='error'))
+                                logits=logits), name='loss')
         # regularization
         wd_cost = regularize_cost('.*/W', l2_regularizer(cfg.weight_decay), name='l2_regularize_loss')
         self.cost = tf.add_n([loss, wd_cost], name='cost')
@@ -103,12 +91,8 @@ class GQCNN(ModelDesc):
         add_moving_summary(loss, wd_cost, self.cost)
 
     def _get_optimizer(self):
-        lr = tf.train.exponential_decay(
-            learning_rate=cfg.base_lr,
-            global_step=get_global_step_var(),
-            decay_steps=cfg.decay_step,
-            decay_rate=cfg.decay_rate, staircase=True, name='learning_rate')
-        optimizer = tf.train.MomentumOptimizer(lr, cfg.momentum_rate)
+        lr = get_scalar_var('learning_rate', cfg.base_lr, summary=True)
+        optimizer = tf.train.MomentumOptimizer(lr, cfg.momentum_rate, use_nesterov=True)
         return optimizer
 
 def get_data(train_or_test, batch_size):
@@ -129,9 +113,12 @@ def get_config(args, model):
 
     callbacks = [
         ModelSaver(),
-        PeriodicTrigger(InferenceRunner(ds_test, 
-                                        ScalarStats(['cost', 'accuracy'])),
-                        every_k_epochs=2)]
+        PeriodicTrigger(InferenceRunner(ds_test, ScalarStats(['cost', 'accuracy'])),
+                        every_k_epochs=1),
+        HyperParamSetterWithFunc('learning_rate',
+                               lambda e, x: cfg.base_lr * cfg.decay_rate ** (e / cfg.epoch_num) ),
+        HumanHyperParamSetter('learning_rate'),
+    ]
 
     return TrainConfig(
         dataflow=ds_train,

@@ -8,7 +8,7 @@ cfg.filename = 'dexnet2.hdf5'
 cfg.data_dir = '3dnet_kit_06_13_17'
 cfg.train_pct = 0.8
 cfg.tot_datapoints = 6728 * 1000 + 850
-cfg.train_num = cfg.tot_datapoints * cfg.train_pct
+cfg.train_num = int(cfg.tot_datapoints * cfg.train_pct)
 cfg.val_num = cfg.tot_datapoints - cfg.train_num
 
 cfg.im_height = 32

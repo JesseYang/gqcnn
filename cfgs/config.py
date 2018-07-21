@@ -1,1 +1,1 @@
-from .tf_image import cfg
+from .config_dexnet2 import cfg
