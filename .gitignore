@@ -1,0 +1,7 @@
+3dnet_kit_06_13_17
+*__pycache__
+*.jpg
+input_images
+train_log
+*.swp
+*.hdf5
