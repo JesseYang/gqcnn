@@ -85,13 +85,24 @@ class GQCNN(ModelDesc):
                                 labels=label,
                                 logits=logits), name='loss')
         # regularization
-        wd_cost = regularize_cost('.*/W', l2_regularizer(cfg.weight_decay), name='l2_regularize_loss')
+        if cfg.weight_decay > 0:
+            wd_cost = regularize_cost('.*/W', l2_regularizer(cfg.weight_decay), name='l2_regularize_loss')
+        else:
+            wd_cost = tf.constant(0.0)
         self.cost = tf.add_n([loss, wd_cost], name='cost')
 
-        add_moving_summary(loss, wd_cost, self.cost)
+        if cfg.weight_decay > 0:
+            add_moving_summary(loss, wd_cost, self.cost)
+        else:
+            add_moving_summary(loss, self.cost)
 
-    def _get_optimizer(self):
-        lr = get_scalar_var('learning_rate', cfg.base_lr, summary=True)
+    def optimizer(self):
+        lr = tf.train.exponential_decay(
+            learning_rate=cfg.base_lr,
+            global_step=get_global_step_var() * 128,
+            decay_steps=cfg.decay_step,
+            decay_rate=cfg.decay_rate, staircase=True, name='learning_rate')
+        tf.summary.scalar('learning_rate', lr)
         optimizer = tf.train.MomentumOptimizer(lr, cfg.momentum_rate, use_nesterov=True)
         return optimizer
 
@@ -115,9 +126,6 @@ def get_config(args, model):
         ModelSaver(),
         PeriodicTrigger(InferenceRunner(ds_test, ScalarStats(['cost', 'accuracy'])),
                         every_k_epochs=1),
-        HyperParamSetterWithFunc('learning_rate',
-                               lambda e, x: cfg.base_lr * cfg.decay_rate ** (e / cfg.epoch_num) ),
-        HumanHyperParamSetter('learning_rate'),
     ]
 
     return TrainConfig(

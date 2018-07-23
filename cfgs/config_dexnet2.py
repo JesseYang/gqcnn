@@ -3,6 +3,12 @@ import numpy as np
 
 cfg = edict()
 
+# augmentation noise
+cfg.gaussian_process_rate = 0.5
+cfg.gp_sigma = 0.005
+cfg.noise_height = 8
+cfg.noise_width = 8
+
 # datapoints
 cfg.filename = 'dexnet2.hdf5'
 cfg.data_dir = '3dnet_kit_06_13_17'
@@ -15,7 +21,8 @@ cfg.im_height = 32
 cfg.im_width = 32
 
 # weight_decay
-cfg.weight_decay = 0.0005
+# cfg.weight_decay = 0.0005
+cfg.weight_decay = 0
 
 # lr_decay
 cfg.base_lr = 0.01
@@ -26,7 +33,7 @@ cfg.decay_rate = 0.95
 cfg.momentum_rate = 0.9
 
 # train
-cfg.epoch_num = 25
+cfg.epoch_num = 5
 
 # LocalNorm params
 cfg.radius = 2

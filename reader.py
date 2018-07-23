@@ -1,5 +1,6 @@
 import collections
 from scipy import misc
+import scipy.stats as ss
 import tensorflow as tf
 
 import os, sys, shutil
@@ -40,8 +41,16 @@ class Data(RNGDataFlow):
             depth = f['hand_depth'][idx]
             label = f['label'][idx]            
 
+        add_noise = (not self.test_set) and np.random.rand() < cfg.gaussian_process_rate
+            
+        if add_noise:
+            gp_noise = ss.norm.rvs(scale=cfg.gp_sigma, size=cfg.noise_height * cfg.noise_width).reshape(cfg.noise_height, cfg.noise_width)
+            gp_noise = misc.imresize(gp_noise, (cfg.im_height, cfg.im_width), interp='bicubic', mode='F')
+            gp_noise = np.expand_dims(gp_noise, -1)
+            depth_im[depth_im > 0] += gp_noise[depth_im > 0]
+
         if self.save_data:
-            misc.imsave(os.path.join(SAVE_DIR, '%d_%d_depth_im.jpg' % (label, idx)), depth_im[:,:,0])
+            misc.imsave(os.path.join(SAVE_DIR, '%d_%d_depth_im_%d.jpg' % (label, idx, int(add_noise))), depth_im[:,:,0])
 
         return [depth_im, depth, label]
 
